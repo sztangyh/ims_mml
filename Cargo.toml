@@ -1,0 +1,3 @@
+[workspace]
+members = ["mml_def", "mml_def_derive"]
+resolver = "2"

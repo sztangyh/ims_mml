@@ -1,0 +1,10 @@
+/target
+/Cargo.lock
+/logfile/
+
+# Ignore text and Excel files under mml_def
+*.txt
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb

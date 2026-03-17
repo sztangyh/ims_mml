@@ -1,0 +1,23 @@
+﻿[package]
+name = "mml_def"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+egui = "0.22.0"
+once_cell = "1.18.0"
+regex = "1.9.1"
+mml_def_derive = { path = "../mml_def_derive" }
+
+[dev-dependencies]
+async-std = { version = "1.12.0", features = ["attributes"] }
+encoding_rs = { version = "0.8.32", features = ["fast-gb-hanzi-encode"] }
+once_cell = "1.18.0"
+postgres = "0.19.5"
+regex = "1.9.1"
+sqlx = { version = "0.7.1", features = ["postgres", "runtime-async-std"] }
+strum = "0.25.0"
+strum_macros = "0.25.0"
+time = "0.3.22"

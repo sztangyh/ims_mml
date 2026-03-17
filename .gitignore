@@ -1,0 +1,10 @@
+# Rust build artifacts
+/target/
+**/target/
+/mml_def/logfile/
+
+# Editor/system noise
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
