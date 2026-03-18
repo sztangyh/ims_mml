@@ -296,7 +296,10 @@ struct AgcfData {
     asbr_v5: Vec<AddAsbr>,
 }
 
-fn parse_body<T: MmlDeserialize>(body: &str) -> Option<T> {
+fn parse_body<T>(body: &str) -> Option<T>
+where
+    for<'de> T: MmlDeserialize<'de>,
+{
     let params = parse_mml_params(body).ok()?;
     T::from_mml_params(&params).ok()
 }

@@ -27,12 +27,14 @@ use regex::Regex;
 pub enum ImsUserNum<const NUM_SIZE: usize> {
     PUI(U4Number<NUM_SIZE>),
     PRI(U4Number<NUM_SIZE>),
+    TEL(U4Number<NUM_SIZE>),
     RAW(U4Number<NUM_SIZE>),
     ENUM(U4Number<NUM_SIZE>),
 }
 
 static RE_PUI: OnceCell<Regex> = OnceCell::new();
 static RE_PRI: OnceCell<Regex> = OnceCell::new();
+static RE_TEL: OnceCell<Regex> = OnceCell::new();
 static RE_ENUM: OnceCell<Regex> = OnceCell::new();
 
 impl<const NUM_SIZE: usize> ImsUserNum<NUM_SIZE> {}
@@ -44,6 +46,7 @@ impl<const NUM_SIZE: usize> std::ops::Deref for ImsUserNum<NUM_SIZE> {
         match self {
             Self::PUI(n) => n,
             Self::PRI(n) => n,
+            Self::TEL(n) => n,
             Self::RAW(n) => n,
             Self::ENUM(n) => n,
         }
@@ -56,7 +59,8 @@ impl<const NUM_SIZE: usize> std::str::FromStr for ImsUserNum<NUM_SIZE> {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let re_pui =
             RE_PUI.get_or_init(|| Regex::new(r"(?i)^sip:\+86(\d+)@gd.ctcims.cn$").unwrap());
-        let re_pri = RE_PRI.get_or_init(|| Regex::new(r"(?i)^tel:\+86(\d+)$").unwrap());
+        let re_pri = RE_PRI.get_or_init(|| Regex::new(r"(?i)^\+86(\d+)@gd.ctcims.cn$").unwrap());
+        let re_tel = RE_TEL.get_or_init(|| Regex::new(r"(?i)^tel:\+86(\d+)$").unwrap());
         let re_enum =
             RE_ENUM.get_or_init(|| Regex::new(r"(?i)^((?:\d\.)+)6.8.e164.arpa$").unwrap());
 
@@ -64,8 +68,10 @@ impl<const NUM_SIZE: usize> std::str::FromStr for ImsUserNum<NUM_SIZE> {
             //dbg!(&g[1]);
             Ok(Self::PUI(g[1].into()))
         } else if let Some(g) = re_pri.captures(s) {
-            //dbg!(&g[1]);
             Ok(Self::PRI(g[1].into()))
+        } else if let Some(g) = re_tel.captures(s) {
+            //dbg!(&g[1]);
+            Ok(Self::TEL(g[1].into()))
         } else if let Some(g) = re_enum.captures(s) {
             //dbg!(&g[1]);
             let buf: Vec<u8> = g[1]
@@ -89,7 +95,8 @@ impl<const NUM_SIZE: usize> std::fmt::Display for ImsUserNum<NUM_SIZE> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::PUI(n) => write!(f, "sip:+86{}@gd.ctcims.cn", n),
-            Self::PRI(n) => write!(f, "tel:+86{}", n),
+            Self::PRI(n) => write!(f, "+86{}@gd.ctcims.cn", n),
+            Self::TEL(n) => write!(f, "tel:+86{}", n),
             Self::RAW(n) => write!(f, "{}", n),
             Self::ENUM(n) => {
                 for i in (0..n.len()).rev() {

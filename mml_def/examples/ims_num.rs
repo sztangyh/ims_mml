@@ -51,7 +51,8 @@ fn main() {
     let un2: ImsUser = "tel:+8675526770123".parse().unwrap();
     let un3: ImsUser = "3.9.5.0.5.6.6.2.5.5.7.6.8.e164.arpa".parse().unwrap();
     let un4: ImsUser = "75588998001".parse().unwrap();
-    println!("\"{}\"\t\"{}\"\t\"{}\"\t\"{}\"", un1, un2, un3, un4);
+    let un5: ImsUser = "+866682775050@gd.ctcims.cn".parse().unwrap();
+    println!("\"{}\"\t\"{}\"\t\"{}\"\t\"{}\"\t\"{}\"", un1, un2, un3, un4, un5);
     if let ImsUserNum::PUI(n) = un1 {
         let n = n.strip_prefix(&"755".into()).copy_prefix(7);
         //let n = n.strip_prefix(&"755".into());
