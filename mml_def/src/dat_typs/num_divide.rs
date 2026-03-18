@@ -1,9 +1,9 @@
-﻿#![allow(unused)]
+#![allow(unused)]
 use super::{NumsMatch, U4Number};
 use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]
-/// 前缀差集迭代器：遍历 `pfx - to_skip` 的最小前缀集合。
+/// Iterator over prefixes in `pfx - to_skip`.
 pub struct U4NumberDivided<const NUM_SIZE: usize> {
     nxt: Vec<u8>,
     skip: Vec<u8>,
@@ -12,7 +12,7 @@ pub struct U4NumberDivided<const NUM_SIZE: usize> {
 }
 
 impl<const NUM_SIZE: usize> U4NumberDivided<NUM_SIZE> {
-    /// 创建前缀差集迭代器。
+    /// Creates an iterator that yields prefixes in `pfx - to_skip`.
     pub fn new(pfx: U4Number<NUM_SIZE>, to_skip: U4Number<NUM_SIZE>) -> Self {
         //println!("{} / {} is {:?}", pfx, to_skip, pfx.overlap_check(&to_skip));
         match pfx.overlap_check(&to_skip) {

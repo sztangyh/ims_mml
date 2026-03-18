@@ -23,7 +23,7 @@ use once_cell::sync::OnceCell;
 use regex::Regex;
 
 #[derive(Debug, Clone, Copy)]
-/// IMS 用户号码的统一表示（PUI/PRI/RAW/ENUM）。
+/// IMS user number in PUI, PRI, TEL, RAW, or ENUM form.
 pub enum ImsUserNum<const NUM_SIZE: usize> {
     PUI(U4Number<NUM_SIZE>),
     PRI(U4Number<NUM_SIZE>),
@@ -110,7 +110,7 @@ impl<const NUM_SIZE: usize> std::fmt::Display for ImsUserNum<NUM_SIZE> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-/// 前缀类型，文本格式为 `K'xxxx`。
+/// Prefix wrapper encoded as `K'xxxx`.
 pub struct Pfx(U4Number<16>);
 
 impl std::str::FromStr for Pfx {

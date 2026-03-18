@@ -1,14 +1,14 @@
-﻿use super::RangeOfPrefix;
+use super::RangeOfPrefix;
 use super::U4Number;
 use std::fmt::Display;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 #[derive(Clone, PartialEq, Eq)]
-/// 号码前缀集合，内部保持归并后的有序表示。
+/// Normalized set of packed numeric prefixes.
 pub struct U4NumberVec<const NUM_SIZE: usize>(pub Vec<U4Number<NUM_SIZE>>);
 
 impl<const NUM_SIZE: usize> U4NumberVec<NUM_SIZE> {
-    /// 从字符串创建号码前缀集合。
+    /// Parses and normalizes a prefix set from text.
     pub fn new(s: &str) -> Self {
         s.parse().unwrap()
     }
@@ -48,7 +48,7 @@ impl<const NUM_SIZE: usize> U4NumberVec<NUM_SIZE> {
         self.0.truncate(t);
     }
 
-    /// 归一化集合：排序、去冗余并压缩连续区间。
+    /// Sorts and normalizes the internal prefix set.
 
     pub fn get_ready(&mut self) {
         if self.0.len() < 2 {
@@ -80,14 +80,14 @@ impl<const NUM_SIZE: usize> U4NumberVec<NUM_SIZE> {
         //self.0 = self.0.iter().filter(|&n|n.len() > 0).map(|n|n.clone()).collect();
     }
 
-    /// 判断集合是否包含给定号码。
+    /// Checks whether the set contains `num2` under prefix semantics.
 
     pub fn include(&self, num2: &U4Number<NUM_SIZE>) -> bool {
         //dbg!(num2);
         self.0.binary_search_by(|num| num.include_cmp(num2)).is_ok()
     }
 
-    /// 从集合中删除一个号码（必要时自动分裂/重组）。
+    /// Deletes `num2` from the set, splitting prefixes when needed.
 
     pub fn delete(&mut self, num2: &U4Number<NUM_SIZE>) -> bool {
         use super::NumsMatch::SUBSET;
@@ -119,7 +119,7 @@ impl<const NUM_SIZE: usize> U4NumberVec<NUM_SIZE> {
         false
     }
 
-    /// 閹靛綊鍣洪崚鐘绘珟婢舵矮閲滈崣椋庣垳閵?    
+    /// Deletes every prefix from `many`.
 
     pub fn delete_many(&mut self, many: &Self) {
         for one in many.0.iter() {
@@ -127,7 +127,7 @@ impl<const NUM_SIZE: usize> U4NumberVec<NUM_SIZE> {
         }
     }
 
-    /// 濮瑰倷琚辨稉顏堟肠閸氬牏娈戞禍銈夋肠閵?    
+    /// Computes the intersection with another prefix set.
 
     pub fn intersect(&self, other: &Self) -> Self {
         use super::NumsMatch::*;

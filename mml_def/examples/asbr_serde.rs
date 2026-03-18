@@ -1,5 +1,5 @@
 use mml_def::{
-    encode_text_value, parse_text_value, MmlBranch, MmlCommand, MmlError, MmlMessage, MmlValue,
+    encode_text_value, parse_text_value, MmlBranch, MmlError, MmlMessage, MmlValue,
     MmlValueEnum,
 };
 

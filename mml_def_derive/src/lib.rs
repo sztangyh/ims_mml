@@ -1,11 +1,9 @@
-﻿use proc_macro::TokenStream;
+use proc_macro::TokenStream;
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
     parse_macro_input, parse_quote, Attribute, Data, DeriveInput, Field, Fields,
-    GenericArgument, GenericParam, Generics, Ident, Lifetime, LitStr, Result, Token, Type,
+    GenericArgument, GenericParam, Generics, Lifetime, LitStr, Result, Type,
     TypePath, Variant,
 };
 
@@ -27,73 +25,6 @@ fn option_inner(ty: &Type) -> Option<Type> {
         GenericArgument::Type(inner) => Some(inner.clone()),
         _ => None,
     }
-}
-
-struct EnumInput {
-    name: Ident,
-    vars: Punctuated<Ident, Token![,]>,
-}
-
-impl Parse for EnumInput {
-    fn parse(input: ParseStream<'_>) -> Result<Self> {
-        let name: Ident = input.parse()?;
-        let _comma: Token![,] = input.parse()?;
-        let vars = Punctuated::<Ident, Token![,]>::parse_terminated(input)?;
-        Ok(Self { name, vars })
-    }
-}
-
-#[proc_macro]
-pub fn mml_enum(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as EnumInput);
-    let name = input.name;
-    let vars: Vec<_> = input.vars.into_iter().collect();
-    let enum_variants = vars.iter().map(|v| quote!(#v,));
-    let from_str_arms = vars.iter().map(|v| quote!(stringify!(#v) => Ok(Self::#v),));
-    let from_para_ifs = vars.iter().map(|v| {
-        quote!(
-            if s.eq_ignore_ascii_case(stringify!(#v)) {
-                Ok(Self::#v)
-            } else
-        )
-    });
-
-    let expanded = quote! {
-        #[derive(Debug, Clone, PartialEq, Eq)]
-        pub enum #name {
-            #(#enum_variants)*
-        }
-
-        impl std::str::FromStr for #name {
-            type Err = InvalidEnumValue;
-
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s {
-                    #(#from_str_arms)*
-                    _ => Err(InvalidEnumValue),
-                }
-            }
-        }
-
-        impl<'a> FromPara<'a> for #name {
-            type Err = InvalidEnumValue;
-
-            fn from_para(s: &'a str) -> Result<Self, Self::Err> {
-                #(#from_para_ifs)*
-                {
-                    Err(InvalidEnumValue)
-                }
-            }
-        }
-
-        impl std::fmt::Display for #name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{:?}", self)
-            }
-        }
-    };
-
-    expanded.into()
 }
 
 #[derive(Default)]
@@ -278,24 +209,24 @@ fn derive_mml_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStrea
 
         if let Some(inner_ty) = option_inner(&field.ty) {
             deser_steps.push(quote! {
-                let #ident = if <#inner_ty as ::mml_def::MmlField<'de>>::has_field(#pname, params) {
-                    Some(<#inner_ty as ::mml_def::MmlField<'de>>::from_mml_field(#pname, params)?)
+                let #ident = if <#inner_ty as ::mml_def::__private::MmlField<'de>>::has_field(#pname, params) {
+                    Some(<#inner_ty as ::mml_def::__private::MmlField<'de>>::from_mml_field(#pname, params)?)
                 } else {
                     None
                 };
             });
             ser_steps.push(quote! {
                 if let Some(value) = &self.#ident {
-                    <#inner_ty as ::mml_def::MmlField<'_>>::append_mml_field(value, #pname, &mut out)?;
+                    <#inner_ty as ::mml_def::__private::MmlField<'_>>::append_mml_field(value, #pname, &mut out)?;
                 }
             });
         } else {
             let ty = field.ty;
             deser_steps.push(quote! {
-                let #ident = <#ty as ::mml_def::MmlField<'de>>::from_mml_field(#pname, params)?;
+                let #ident = <#ty as ::mml_def::__private::MmlField<'de>>::from_mml_field(#pname, params)?;
             });
             ser_steps.push(quote! {
-                <#ty as ::mml_def::MmlField<'_>>::append_mml_field(&self.#ident, #pname, &mut out)?;
+                <#ty as ::mml_def::__private::MmlField<'_>>::append_mml_field(&self.#ident, #pname, &mut out)?;
             });
         }
 
@@ -307,10 +238,10 @@ fn derive_mml_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStrea
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     Ok(quote! {
-        impl #de_impl_generics ::mml_def::MmlDeserialize<'de> for #name #ty_generics #de_where_clause {
+        impl #de_impl_generics ::mml_def::__private::MmlDeserialize<'de> for #name #ty_generics #de_where_clause {
             fn from_mml_params<P>(params: P) -> Result<Self, ::mml_def::MmlError>
             where
-                P: ::mml_def::MmlParamLookup<'de> + Copy,
+                P: ::mml_def::__private::MmlParamLookup<'de> + Copy,
             {
                 #(#deser_steps)*
                 Ok(Self {
@@ -319,7 +250,7 @@ fn derive_mml_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStrea
             }
         }
 
-        impl #impl_generics ::mml_def::MmlSerialize for #name #ty_generics #where_clause {
+        impl #impl_generics ::mml_def::__private::MmlSerialize for #name #ty_generics #where_clause {
             fn to_mml_params(&self) -> Result<Vec<(String, String)>, ::mml_def::MmlError> {
                 let mut out = Vec::new();
                 #(#ser_steps)*
@@ -327,9 +258,48 @@ fn derive_mml_message_impl(input: DeriveInput) -> Result<proc_macro2::TokenStrea
             }
         }
 
-        impl #impl_generics ::mml_def::MmlCommand for #name #ty_generics #where_clause {
+        impl #impl_generics ::mml_def::__private::MmlCommand for #name #ty_generics #where_clause {
             const MML_OP: &'static str = #op;
             const MML_OBJECT: &'static str = #object;
+        }
+
+        impl #impl_generics #name #ty_generics #where_clause {
+            pub fn from_mml_line(input: &str) -> Result<Self, ::mml_def::MmlError>
+            where
+                for<'de2> Self: ::mml_def::__private::MmlDeserialize<'de2>,
+            {
+                <Self as ::mml_def::__private::MmlCommand>::from_mml_line(input)
+            }
+
+            pub fn from_mml_line_borrowed<'de2>(
+                input: &'de2 str,
+            ) -> Result<Self, ::mml_def::MmlError>
+            where
+                Self: ::mml_def::__private::MmlDeserialize<'de2>,
+            {
+                <Self as ::mml_def::__private::MmlCommand>::from_mml_line_borrowed(input)
+            }
+
+            pub fn from_mml_line_ref<'de2>(
+                input: &'de2 str,
+            ) -> Result<Self, ::mml_def::MmlError>
+            where
+                Self: ::mml_def::__private::MmlDeserialize<'de2>,
+            {
+                Self::from_mml_line_borrowed(input)
+            }
+
+            pub fn to_mml_line(&self) -> Result<String, ::mml_def::MmlError> {
+                <Self as ::mml_def::__private::MmlCommand>::to_mml_line(self)
+            }
+
+            pub const fn mml_op() -> &'static str {
+                <Self as ::mml_def::__private::MmlCommand>::MML_OP
+            }
+
+            pub const fn mml_object() -> &'static str {
+                <Self as ::mml_def::__private::MmlCommand>::MML_OBJECT
+            }
         }
     })
 }
@@ -417,8 +387,8 @@ fn derive_mml_branch_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream
 
                     if let Some(inner_ty) = option_inner(&field.ty) {
                         parse_steps.push(quote! {
-                            let #fname = if <#inner_ty as ::mml_def::MmlField<'de>>::has_field(#pname, params) {
-                                Some(<#inner_ty as ::mml_def::MmlField<'de>>::from_mml_field(#pname, params)?)
+                            let #fname = if <#inner_ty as ::mml_def::__private::MmlField<'de>>::has_field(#pname, params) {
+                                Some(<#inner_ty as ::mml_def::__private::MmlField<'de>>::from_mml_field(#pname, params)?)
                             } else {
                                 None
                             };
@@ -426,17 +396,17 @@ fn derive_mml_branch_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream
                         arm_bindings.push(quote! { #fname });
                         arm_steps.push(quote! {
                             if let Some(value) = #fname {
-                                <#inner_ty as ::mml_def::MmlField<'_>>::append_mml_field(value, #pname, out)?;
+                                <#inner_ty as ::mml_def::__private::MmlField<'_>>::append_mml_field(value, #pname, out)?;
                             }
                         });
                     } else {
                         let fty = field.ty;
                         parse_steps.push(quote! {
-                            let #fname = <#fty as ::mml_def::MmlField<'de>>::from_mml_field(#pname, params)?;
+                            let #fname = <#fty as ::mml_def::__private::MmlField<'de>>::from_mml_field(#pname, params)?;
                         });
                         arm_bindings.push(quote! { #fname });
                         arm_steps.push(quote! {
-                            <#fty as ::mml_def::MmlField<'_>>::append_mml_field(#fname, #pname, out)?;
+                            <#fty as ::mml_def::__private::MmlField<'_>>::append_mml_field(#fname, #pname, out)?;
                         });
                     }
 
@@ -480,7 +450,7 @@ fn derive_mml_branch_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream
     let (_, ty_generics, _) = generics.split_for_impl();
 
     Ok(quote! {
-        impl #de_impl_generics ::mml_def::MmlBranch<'de> for #name #ty_generics #de_where_clause {
+        impl #de_impl_generics ::mml_def::__private::MmlBranch<'de> for #name #ty_generics #de_where_clause {
             const TAG: Option<&'static str> = #tag_const;
 
             fn from_mml_branch<P>(
@@ -488,13 +458,13 @@ fn derive_mml_branch_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream
                 params: P,
             ) -> Result<Self, ::mml_def::MmlError>
             where
-                P: ::mml_def::MmlParamLookup<'de> + Copy,
+                P: ::mml_def::__private::MmlParamLookup<'de> + Copy,
             {
                 let actual_tag_key = Self::TAG.unwrap_or(tag_key);
                 let raw_tag_value = params
                     .get(actual_tag_key)
                     .ok_or_else(|| ::mml_def::MmlError::MissingField(actual_tag_key.to_string()))?;
-                let tag_value = ::mml_def::parse_plain_token_ref(raw_tag_value)?;
+                let tag_value = ::mml_def::__private::parse_plain_token_ref(raw_tag_value)?;
 
                 #(#parse_checks)*
 
@@ -516,12 +486,12 @@ fn derive_mml_branch_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream
             }
         }
 
-        impl #de_impl_generics ::mml_def::MmlField<'de> for #name #ty_generics #de_where_clause {
+        impl #de_impl_generics ::mml_def::__private::MmlField<'de> for #name #ty_generics #de_where_clause {
             fn has_field<P>(field_name: &str, params: P) -> bool
             where
-                P: ::mml_def::MmlParamLookup<'de> + Copy,
+                P: ::mml_def::__private::MmlParamLookup<'de> + Copy,
             {
-                let tag_key = <Self as ::mml_def::MmlBranch<'de>>::TAG.unwrap_or(field_name);
+                let tag_key = <Self as ::mml_def::__private::MmlBranch<'de>>::TAG.unwrap_or(field_name);
                 params.contains(tag_key)
             }
 
@@ -530,10 +500,10 @@ fn derive_mml_branch_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream
                 params: P,
             ) -> Result<Self, ::mml_def::MmlError>
             where
-                P: ::mml_def::MmlParamLookup<'de> + Copy,
+                P: ::mml_def::__private::MmlParamLookup<'de> + Copy,
             {
-                let tag_key = <Self as ::mml_def::MmlBranch<'de>>::TAG.unwrap_or(field_name);
-                <Self as ::mml_def::MmlBranch<'de>>::from_mml_branch(tag_key, params)
+                let tag_key = <Self as ::mml_def::__private::MmlBranch<'de>>::TAG.unwrap_or(field_name);
+                <Self as ::mml_def::__private::MmlBranch<'de>>::from_mml_branch(tag_key, params)
             }
 
             fn append_mml_field(
@@ -541,8 +511,8 @@ fn derive_mml_branch_impl(input: DeriveInput) -> Result<proc_macro2::TokenStream
                 field_name: &str,
                 out: &mut Vec<(String, String)>,
             ) -> Result<(), ::mml_def::MmlError> {
-                let tag_key = <Self as ::mml_def::MmlBranch<'de>>::TAG.unwrap_or(field_name);
-                <Self as ::mml_def::MmlBranch<'de>>::append_mml_branch(self, tag_key, out)
+                let tag_key = <Self as ::mml_def::__private::MmlBranch<'de>>::TAG.unwrap_or(field_name);
+                <Self as ::mml_def::__private::MmlBranch<'de>>::append_mml_branch(self, tag_key, out)
             }
         }
     })
@@ -605,11 +575,11 @@ fn derive_mml_value_enum_impl(input: DeriveInput) -> Result<proc_macro2::TokenSt
 
     Ok(quote! {
         impl #impl_generics std::str::FromStr for #name #ty_generics #where_clause {
-            type Err = ::mml_def::InvalidEnumValue;
+            type Err = String;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 #(#from_checks)*
-                Err(::mml_def::InvalidEnumValue)
+                Err(format!("invalid {}: {}", stringify!(#name), s))
             }
         }
 
@@ -624,13 +594,12 @@ fn derive_mml_value_enum_impl(input: DeriveInput) -> Result<proc_macro2::TokenSt
 
         impl #impl_generics ::mml_def::MmlValue for #name #ty_generics #where_clause {
             fn from_mml_value(raw: &str) -> Result<Self, ::mml_def::MmlError> {
-                let v = ::mml_def::parse_plain_token(raw)?;
-                v.parse::<Self>().map_err(|_| {
+                let v = ::mml_def::__private::parse_plain_token(raw)?;
+                v.parse::<Self>().map_err(|e| {
                     let expected = [#(#expected_values),*].join(", ");
                     ::mml_def::MmlError::InvalidParam(format!(
-                        "invalid {}: {} (expected one of: {})",
-                        stringify!(#name),
-                        v,
+                        "{} (expected one of: {})",
+                        e,
                         expected
                     ))
                 })
@@ -642,6 +611,11 @@ fn derive_mml_value_enum_impl(input: DeriveInput) -> Result<proc_macro2::TokenSt
         }
     })
 }
+
+
+
+
+
 
 
 

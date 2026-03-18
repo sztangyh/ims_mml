@@ -1,9 +1,9 @@
-﻿use std::cmp::Ordering;
+use std::cmp::Ordering;
 use std::fmt::Display;
 use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Eq)]
-/// 两个号码集合前缀关系的比较结果。
+/// Relationship between two numeric prefix values.
 pub enum NumsMatch {
     ABOVE,
     SUPERSET,
@@ -23,23 +23,23 @@ impl From<NumsMatch> for Ordering {
 }
 //const NUM_SIZE:usize = 12;
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-/// 基于 BCD 半字节编码的号码类型。
+/// Packed digit sequence stored in 4-bit nibbles.
 pub struct U4Number<const NUM_SIZE: usize>([u8; NUM_SIZE]);
 
 impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
     //type BUF = [u8; (NUM_SIZE -1) * 2];
     #[inline]
-    /// 返回号码长度（按半字节位数）。
+    /// Returns the number of digits currently stored.
     pub fn len(&self) -> usize {
         self.0[NUM_SIZE - 1] as usize
     }
     #[inline]
-    /// 设置号码长度（按半字节位数）。
+    /// Sets the logical digit length.
     pub fn set_len(&mut self, len: u8) {
         self.0[NUM_SIZE - 1] = len;
     }
 
-    /// 转换为前缀字符串表示。
+    /// Formats digits using prefix encoding (`E`/`F` for special digits).
 
     pub fn to_pfx(&self) -> String {
         //let mut buf: [u8; (NUM_SIZE - 1) * 2] = [0; (NUM_SIZE - 1) * 2];
@@ -64,7 +64,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         buf
     }
 
-    /// 转换为逐位数字数组。
+    /// Returns digits as a byte vector.
 
     pub fn to_bytes(&self) -> Vec<u8> {
         //let mut buf: [u8; (NUM_SIZE - 1) * 2] = [0; (NUM_SIZE - 1) * 2];
@@ -83,7 +83,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         buf
     }
 
-    /// 按前缀包含语义比较两个号码。
+    /// Compares two numbers with prefix-inclusion semantics.
 
     pub fn include_cmp(&self, num2: &Self) -> Ordering {
         let l = std::cmp::min(self.len(), num2.len());
@@ -102,7 +102,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         }
     }
 
-    /// 检查两个号码前缀的覆盖/相交关系。
+    /// Classifies overlap relationship between two prefixes.
 
     pub fn overlap_check(&self, num2: &Self) -> NumsMatch {
         let l = std::cmp::min(self.len(), num2.len());
@@ -121,7 +121,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         }
     }
 
-    /// 计算两个号码的最长公共前缀长度。
+    /// Returns the length of the common prefix.
 
     pub fn same_prefix_len(&self, num2: &Self) -> usize {
         let l = std::cmp::min(self.len(), num2.len());
@@ -139,7 +139,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         }
     }
 
-    /// 获取当前号码的前一个号码。
+    /// Returns the immediate previous number if it exists.
 
     pub fn get_precede_num(&self) -> Option<Self> {
         let mut pn = *self;
@@ -155,7 +155,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         None
     }
 
-    /// 获取当前号码的后一个号码。
+    /// Returns the immediate next number if it exists.
 
     pub fn get_succeed_num(&self) -> Option<Self> {
         let mut pn = *self;
@@ -171,7 +171,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         None
     }
 
-    /// 判断另一个号码是否是可连续合并的后继前缀。
+    /// Checks whether `num2` is the mergeable successor of `self`.
 
     pub fn is_succeed_by(&self, num2: &Self) -> bool {
         let mut l1 = self.len();
@@ -192,7 +192,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         }
     }
 
-    /// 判断两个号码在前 `l` 位是否前缀一致。
+    /// Checks whether two values share the same prefix of length `l`.
 
     pub fn same_prefix_of(&self, num2: &Self, l: usize) -> bool {
         if l > self.len() {
@@ -211,7 +211,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         true
     }
 
-    /// 若存在指定前缀则去除该前缀。
+    /// Removes `pfx` from the front when it matches.
 
     pub fn strip_prefix(&self, pfx: &Self) -> Self {
         if self.same_prefix_of(pfx, pfx.len()) {
@@ -221,7 +221,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         }
     }
 
-    /// 将当前号码拼接到给定前缀之后。
+    /// Prepends `pfx` to the current number.
 
     pub fn with_prefix(&self, pfx: &Self) -> Self {
         let mut n = *pfx;
@@ -232,7 +232,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         n
     }
 
-    /// 复制并返回移除前 `l` 位后的后缀。
+    /// Copies the suffix after dropping the first `l` digits.
 
     pub fn copy_suffix(&self, l: usize) -> Self {
         let mut n = Self::new();
@@ -244,7 +244,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         }
         n
     }
-    /// 复制并返回前 `l` 位前缀。
+    /// Copies at most the first `l` digits.
     pub fn copy_prefix(&self, l: usize) -> Self {
         let l = std::cmp::min(l, self.len());
         let mut n = Self::new();
@@ -259,7 +259,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         n
     }
 
-    /// 扩展到指定位数并返回扩展基值与计数因子。
+    /// Expands to `snb_len` and returns the base value plus count factor.
 
     pub fn to_snb(&self, snb_len: usize) -> Option<(Self, usize)> {
         if snb_len < self.len() || snb_len > 2 * (NUM_SIZE - 1) {
@@ -276,7 +276,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
     }
 
     #[inline]
-    /// 判断末位是否等于给定数字。
+    /// Checks whether the last digit equals `d`.
     pub fn is_end_with(&self, d: u8) -> bool {
         let l = self.len();
         if l == 0 {
@@ -287,7 +287,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
     }
 
     #[inline]
-    /// 读取第 `i` 位数字（从 0 开始）。
+    /// Reads one digit at position `i`.
     pub fn get_at(&self, i: usize) -> u8 {
         let (p, odd) = (i / 2, i % 2 != 0);
         if odd {
@@ -298,7 +298,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
     }
 
     #[inline]
-    /// 设置第 `i` 位数字（从 0 开始）。
+    /// Writes one digit at position `i`.
     pub fn set_at(&mut self, i: usize, d: u8) {
         let (p, odd) = (i / 2, i % 2 != 0);
         if odd {
@@ -312,7 +312,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
 }
 
 impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
-    /// 从数字切片构造 `U4Number`。
+    /// Builds a packed number from raw digit bytes.
     pub fn from_u8(buf: &[u8]) -> Self {
         let mut u4num: [u8; NUM_SIZE] = [0; NUM_SIZE];
         buf.chunks(2).enumerate().fold(&mut u4num, |vec, (i, chk)| {
@@ -327,7 +327,7 @@ impl<const NUM_SIZE: usize> U4Number<NUM_SIZE> {
         Self(u4num)
     }
 
-    /// 创建空号码。
+    /// Creates an empty number with zero logical length.
 
     pub fn new() -> Self {
         Self([0; NUM_SIZE])

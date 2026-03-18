@@ -295,15 +295,6 @@ struct AgcfData {
     asbr_sip: Vec<AddAsbr>,
     asbr_v5: Vec<AddAsbr>,
 }
-
-fn parse_body<T>(body: &str) -> Option<T>
-where
-    for<'de> T: MmlDeserialize<'de>,
-{
-    let params = parse_mml_params(body).ok()?;
-    T::from_mml_params(&params).ok()
-}
-
 fn required_env(key: &str) -> Result<String, std::io::Error> {
     std::env::var(key).map_err(|_| {
         std::io::Error::new(
@@ -335,75 +326,81 @@ fn main() -> Result<(), std::io::Error> {
     let (bb, _, _) = GBK.decode(&buf);
     let mut lines = bb.lines();
     while let Some(line) = lines.next() {
-        match split_mml(line) {
-            Some(("ADD", "MODULE", bd)) => {
-                if let Some(m) = parse_body::<Module>(bd) {
+        let Ok((op, obj, params)) = parse_mml_line(line) else {
+            continue;
+        };
+
+        match (op.as_str(), obj.as_str()) {
+            ("ADD", "MODULE") => {
+                if let Some(m) = deserialize_params::<Module>(&params).ok() {
                     agcf.modules.insert(m.mid, m.mt);
                 }
             }
-            Some(("ADD", "MGW", bd)) => {
-                if let Some(mgw) = parse_body::<Mgw>(bd) {
+            ("ADD", "MGW") => {
+                if let Some(mgw) = deserialize_params::<Mgw>(&params).ok() {
                     if mgw.gwtp == GWTP::AG {
                         agcf.mgw.push(mgw);
                     }
                 }
             }
-            Some(("ADD", "PRALNK", bd)) => {
-                if let Some(lnk) = parse_body::<Pralnk>(bd) {
+            ("ADD", "PRALNK") => {
+                if let Some(lnk) = deserialize_params::<Pralnk>(&params).ok() {
                     pralnk_list.insert(lnk.pln, lnk);
                 }
             }
-            Some(("ADD", "OFC", bd)) => {
-                if let Some(o) = bd.find("=LOW").and(parse_body::<Ofc>(bd)) {
-                    ofc_tbl.insert(o.o, o);
+            ("ADD", "OFC") => {
+                if line.contains("=LOW") {
+                    if let Some(o) = deserialize_params::<Ofc>(&params).ok() {
+                        ofc_tbl.insert(o.o, o);
+                    }
                 }
             }
-            Some(("ADD", "SRT", bd)) => {
-                if let Some(sr) = parse_body::<Srt>(bd) {
+            ("ADD", "SRT") => {
+                if let Some(sr) = deserialize_params::<Srt>(&params).ok() {
                     srt_tbl.insert(sr.src, sr.o);
                 }
             }
-            Some(("ADD", "RT", bd)) => {
-                if let Some(r) = parse_body::<Rt>(bd) {
+            ("ADD", "RT") => {
+                if let Some(r) = deserialize_params::<Rt>(&params).ok() {
                     if r.sr2.is_none() {
                         rt_tbl.insert(r.sr1, r.r);
                     }
                 }
             }
-            Some(("ADD", "RTANA", bd)) => {
-                if let Some(ana) = parse_body::<Rtana>(bd) {
+            ("ADD", "RTANA") => {
+                if let Some(ana) = deserialize_params::<Rtana>(&params).ok() {
                     rtana_tbl.insert(ana.r, (ana.rsc, ana.rssc));
                 }
             }
-            Some(("ADD", "CNACLD", bd)) => {
-                if let Some(cna) = parse_body::<Cnacld>(bd) {
+            ("ADD", "CNACLD") => {
+                if let Some(cna) = deserialize_params::<Cnacld>(&params).ok() {
                     agcf.cnacld.push(cna);
                 }
             }
-            Some(("ADD", "SIPTG", bd)) => {
-                if let Some(sipt) = parse_body::<Siptg>(bd) {
+            ("ADD", "SIPTG") => {
+                if let Some(sipt) = deserialize_params::<Siptg>(&params).ok() {
                     agcf.siptg.push(sipt);
                 }
             }
-            Some(("ADD", "PRATG", bd)) => {
-                if let Some(prat) = parse_body::<Pratg>(bd) {
+            ("ADD", "PRATG") => {
+                if let Some(prat) = deserialize_params::<Pratg>(&params).ok() {
                     pratg_list.push(prat);
                 }
             }
-            Some(("ADD", "PRATKC", bd)) => {
-                if let Some(tkc) = parse_body::<Pratkc>(bd) {
+            ("ADD", "PRATKC") => {
+                if let Some(tkc) = deserialize_params::<Pratkc>(&params).ok() {
                     pratkc_tbl
                         .entry(tkc.tg)
                         .or_insert((tkc.mn, tkc.sc, tkc.tid));
                 }
             }
-            Some(("ADD", "TGDSG", bd)) => {
-                if let Some(dsg) = parse_body::<Tgdsg>(bd) {
+            ("ADD", "TGDSG") => {
+                if let Some(dsg) = deserialize_params::<Tgdsg>(&params).ok() {
                     tgdsg_tbl.insert(dsg.tg, dsg.dsg);
                 }
             }
-            Some(("ADD", "ASBR", bd)) => {
-                if let Some(asbr) = parse_body::<AddAsbr>(bd) {
+            ("ADD", "ASBR") => {
+                if let Some(asbr) = deserialize_params::<AddAsbr>(&params).ok() {
                     match asbr.did.to_ascii_uppercase().as_str() {
                         "ESL" => agcf.asbr_esl.push(asbr),
                         "V5ST" => agcf.asbr_v5.push(asbr),
@@ -413,21 +410,21 @@ fn main() -> Result<(), std::io::Error> {
                     }
                 }
             }
-            Some(("MOD", "TGSRT", bd)) => {
-                if let Some(tr) = parse_body::<TgSrt>(bd) {
+            ("MOD", "TGSRT") => {
+                if let Some(tr) = deserialize_params::<TgSrt>(&params).ok() {
                     tgsrt_tbl.insert(tr.tg, tr.src);
                 }
             }
-            Some(("MOD", "CNACLD", bd)) => {
-                if let Some(cna) = parse_body::<CnacldM>(bd) {
+            ("MOD", "CNACLD") => {
+                if let Some(cna) = deserialize_params::<CnacldM>(&params).ok() {
                     cnacld_spchg.insert((cna.lp, cna.pfx), cna.spchg);
                 }
             }
-            Some(("ADD", "CLRDSN", bd)) => {
-                let _ = parse_body::<Clrdsn>(bd);
+            ("ADD", "CLRDSN") => {
+                let _ = deserialize_params::<Clrdsn>(&params).ok();
             }
-            Some(("ADD", "TGAP", bd)) => {
-                if let Some(tgap) = parse_body::<Tgap>(bd) {
+            ("ADD", "TGAP") => {
+                if let Some(tgap) = deserialize_params::<Tgap>(&params).ok() {
                     tgap_tbl.entry(tgap.tg).or_insert(tgap);
                 }
             }

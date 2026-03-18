@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// MML 解析与序列化过程中的统一错误类型。
+/// Errors returned by MML parsing and serialization routines.
 pub enum MmlError {
     InvalidLine(String),
     InvalidParam(String),
@@ -40,70 +40,70 @@ impl Display for MmlError {
 impl std::error::Error for MmlError {}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-/// 拥有型 MML 参数集合，键名大小写不敏感（内部统一为大写）。
+/// Owned MML parameter map with case-insensitive keys.
 pub struct MmlParams {
     inner: BTreeMap<String, String>,
 }
 
 impl MmlParams {
-    /// 创建空参数集合。
-    pub fn new() -> Self {
+    /// Creates a new empty value.
+pub fn new() -> Self {
         Self::default()
     }
 
-    /// 插入参数项，键会规范化，值会自动去除首尾空白。
-    pub fn insert(&mut self, key: impl Into<String>, value: impl Into<String>) {
+    /// Inserts or overwrites a parameter value by key.
+pub fn insert(&mut self, key: impl Into<String>, value: impl Into<String>) {
         self.inner
             .insert(normalize_key(&key.into()), value.into().trim().to_string());
     }
 
-    /// 按键名读取参数值（大小写不敏感）。
-    pub fn get(&self, key: &str) -> Option<&str> {
+    /// Gets a parameter value by key.
+pub fn get(&self, key: &str) -> Option<&str> {
         self.inner
             .get(&normalize_key(key))
             .map(std::string::String::as_str)
     }
 
-    /// 判断是否包含指定参数键。
-    pub fn contains(&self, key: &str) -> bool {
+    /// Returns whether a key exists in the parameter map.
+pub fn contains(&self, key: &str) -> bool {
         self.inner.contains_key(&normalize_key(key))
     }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-/// 借用型 MML 参数集合，值直接借用原始 MML 文本切片。
+/// Borrowed MML parameter map that references input slices.
 pub struct MmlParamsRef<'a> {
     inner: BTreeMap<String, &'a str>,
 }
 
 impl<'a> MmlParamsRef<'a> {
-    /// 创建空借用参数集合。
-    pub fn new() -> Self {
+    /// Creates a new empty value.
+pub fn new() -> Self {
         Self::default()
     }
 
-    /// 插入参数项，键会规范化，值保持借用并自动去除首尾空白。
-    pub fn insert(&mut self, key: &str, value: &'a str) {
+    /// Inserts or overwrites a parameter value by key.
+pub fn insert(&mut self, key: &str, value: &'a str) {
         self.inner.insert(normalize_key(key), value.trim());
     }
 
-    /// 按键名读取参数值（大小写不敏感）。
-    pub fn get(&self, key: &str) -> Option<&'a str> {
+    /// Gets a parameter value by key.
+pub fn get(&self, key: &str) -> Option<&'a str> {
         self.inner.get(&normalize_key(key)).copied()
     }
 
-    /// 判断是否包含指定参数键。
-    pub fn contains(&self, key: &str) -> bool {
+    /// Returns whether a key exists in the parameter map.
+pub fn contains(&self, key: &str) -> bool {
         self.inner.contains_key(&normalize_key(key))
     }
 }
 
-/// 统一参数读取接口：支持拥有型与借用型参数集合。
+/// Lookup abstraction shared by owned and borrowed parameter maps.
 pub trait MmlParamLookup<'de> {
-    /// 按键读取参数值。
-    fn get(self, key: &str) -> Option<&'de str>;
-    /// 判断参数键是否存在。
-    fn contains(self, key: &str) -> bool;
+    /// Gets a parameter value by key.
+fn get(self, key: &str) -> Option<&'de str>;
+    /// Returns whether a key exists in the parameter map.
+fn contains(self, key: &str) -> bool;
 }
 
 impl<'de, 'p: 'de> MmlParamLookup<'de> for &'p MmlParams {
@@ -126,12 +126,12 @@ impl<'de, 'p> MmlParamLookup<'de> for &'p MmlParamsRef<'de> {
     }
 }
 
-/// 规范化参数键名：去空白并转为 ASCII 大写。
+/// Normalizes a parameter key for case-insensitive matching.
 fn normalize_key(key: &str) -> String {
     key.trim().to_ascii_uppercase()
 }
 
-/// 校验命令头操作类型和对象。
+/// Validates parsed command header fields.
 fn validate_cmd_header(
     op: &str,
     object: &str,
@@ -153,7 +153,7 @@ fn validate_cmd_header(
     Ok(())
 }
 
-/// 解析完整 MML 行（拥有型参数）：`<OP> <OBJECT>:K=V,...;`。
+/// Parses a full MML command line into op, object, and owned parameters.
 pub fn parse_mml_line(input: &str) -> Result<(String, String, MmlParams), MmlError> {
     let trimmed = input.trim();
     let (header, body_with_tail) = trimmed
@@ -184,7 +184,7 @@ pub fn parse_mml_line(input: &str) -> Result<(String, String, MmlParams), MmlErr
     Ok((op, object, params))
 }
 
-/// 解析完整 MML 行（借用型参数）：`<OP> <OBJECT>:K=V,...;`。
+/// Parses a full MML command line into op, object, and borrowed parameters.
 pub fn parse_mml_line_ref<'a>(input: &'a str) -> Result<(&'a str, &'a str, MmlParamsRef<'a>), MmlError> {
     let trimmed = input.trim();
     let (header, body_with_tail) = trimmed
@@ -213,7 +213,7 @@ pub fn parse_mml_line_ref<'a>(input: &'a str) -> Result<(&'a str, &'a str, MmlPa
     Ok((op, object, params))
 }
 
-/// 解析参数体 `K=V,...` 并构造成拥有型参数集合。
+/// Parses `K=V,...` into an owned parameter map.
 pub fn parse_mml_params(body: &str) -> Result<MmlParams, MmlError> {
     let mut params = MmlParams::new();
     for (k, v) in split_key_values(body)? {
@@ -222,7 +222,7 @@ pub fn parse_mml_params(body: &str) -> Result<MmlParams, MmlError> {
     Ok(params)
 }
 
-/// 解析参数体 `K=V,...` 并构造成借用型参数集合。
+/// Parse `K=V,...` into a borrowed parameter map.
 pub fn parse_mml_params_ref<'a>(body: &'a str) -> Result<MmlParamsRef<'a>, MmlError> {
     let mut params = MmlParamsRef::new();
     for (k, v) in split_key_values_ref(body)? {
@@ -231,7 +231,23 @@ pub fn parse_mml_params_ref<'a>(body: &'a str) -> Result<MmlParamsRef<'a>, MmlEr
     Ok(params)
 }
 
-/// 把操作类型、对象和参数对组装为完整 MML 文本。
+/// Deserialize a target type from an owned parameter map.
+pub fn deserialize_params<T>(params: &MmlParams) -> Result<T, MmlError>
+where
+    for<'de> T: MmlDeserialize<'de>,
+{
+    <T as MmlDeserialize<'_>>::from_mml_params(params)
+}
+
+/// Deserialize a target type from a borrowed parameter map.
+pub fn deserialize_params_ref<'de, T>(params: &'de MmlParamsRef<'de>) -> Result<T, MmlError>
+where
+    T: MmlDeserialize<'de>,
+{
+    <T as MmlDeserialize<'de>>::from_mml_params(params)
+}
+
+/// Compose a full MML line from operation, object, and parameters.
 pub fn compose_mml_line(op: &str, object: &str, pairs: &[(String, String)]) -> String {
     let body = pairs
         .iter()
@@ -241,7 +257,7 @@ pub fn compose_mml_line(op: &str, object: &str, pairs: &[(String, String)]) -> S
     format!("{} {}:{};", op.trim(), object.trim(), body)
 }
 
-/// 按键值对切分参数体（拥有型），支持引号与转义场景。
+/// Splits a parameter body into owned key-value pairs.
 fn split_key_values(body: &str) -> Result<Vec<(String, String)>, MmlError> {
     let mut out = Vec::new();
     let mut item = String::new();
@@ -287,7 +303,7 @@ fn split_key_values(body: &str) -> Result<Vec<(String, String)>, MmlError> {
     Ok(out)
 }
 
-/// 按键值对切分参数体（借用型），值切片直接借用原始输入。
+/// Splits a parameter body into borrowed key-value pairs.
 fn split_key_values_ref<'a>(body: &'a str) -> Result<Vec<(&'a str, &'a str)>, MmlError> {
     let mut out = Vec::new();
     let mut start = 0usize;
@@ -331,7 +347,7 @@ fn push_item_ref<'a>(item: &'a str, out: &mut Vec<(&'a str, &'a str)>) -> Result
     Ok(())
 }
 
-/// 解析文本参数值，必要时去引号并反转义（拥有型）。
+/// Parses a text parameter and returns an owned string value.
 pub fn parse_text_value(raw: &str) -> Result<String, MmlError> {
     let trimmed = raw.trim();
     if trimmed.starts_with('"') {
@@ -346,7 +362,7 @@ pub fn parse_text_value(raw: &str) -> Result<String, MmlError> {
     Ok(trimmed.to_string())
 }
 
-/// 解析文本参数值（借用型）：仅去除外围引号，不做反转义。
+/// Parses a text parameter and returns a borrowed string slice.
 pub fn parse_text_slice<'a>(raw: &'a str) -> Result<&'a str, MmlError> {
     let trimmed = raw.trim();
     if trimmed.starts_with('"') {
@@ -360,17 +376,17 @@ pub fn parse_text_slice<'a>(raw: &'a str) -> Result<&'a str, MmlError> {
     Ok(trimmed)
 }
 
-/// 解析普通 token（拥有型，等价于 parse_text_value 后再 trim）。
+/// Parses a plain token as an owned string.
 pub fn parse_plain_token(raw: &str) -> Result<String, MmlError> {
     parse_text_value(raw).map(|s| s.trim().to_string())
 }
 
-/// 解析普通 token（借用型，等价于 parse_text_slice 后再 trim）。
+/// Parses a plain token as a borrowed string slice.
 pub fn parse_plain_token_ref<'a>(raw: &'a str) -> Result<&'a str, MmlError> {
     Ok(parse_text_slice(raw)?.trim())
 }
 
-/// 将文本编码为 MML 字面量（自动加引号与转义）。
+/// Encodes plain text into an MML string literal.
 pub fn encode_text_value(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len() + 2);
     escaped.push('"');
@@ -388,7 +404,7 @@ pub fn encode_text_value(text: &str) -> String {
     escaped
 }
 
-/// 反转义字符串中的转义序列。
+/// Unescapes backslash escape sequences inside quoted text.
 fn unescape_text(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut escaped = false;
@@ -420,24 +436,24 @@ fn unescape_text(text: &str) -> String {
     out
 }
 
-/// 定义类型与 MML 参数值之间的双向转换（拥有型）。
+/// Bidirectional conversion between a Rust type and one MML value.
 pub trait MmlValue: Sized {
-    /// 从 MML 参数字符串解析当前类型。
-    fn from_mml_value(raw: &str) -> Result<Self, MmlError>;
-    /// 将当前类型编码为 MML 参数值字符串。
-    fn to_mml_value(&self) -> String;
+    /// Parses a typed value from one raw MML value token.
+fn from_mml_value(raw: &str) -> Result<Self, MmlError>;
+    /// Encodes a typed value as one MML value token.
+fn to_mml_value(&self) -> String;
 }
 
-/// 定义支持“借用反序列化”的值类型转换。
+/// Borrowing variant of `MmlValue` for zero-copy parsing.
 pub trait MmlValueBorrowed<'de>: Sized {
-    /// 从借用参数值解析当前类型。
-    fn from_mml_value_borrowed(raw: &'de str) -> Result<Self, MmlError>;
+    /// Parses a typed value by borrowing from the source input.
+fn from_mml_value_borrowed(raw: &'de str) -> Result<Self, MmlError>;
 }
 
-/// 定义值类型序列化接口。
+/// Encodes a field value into an MML parameter literal.
 pub trait MmlValueEncode {
-    /// 编码为 MML 参数字符串。
-    fn encode_mml_value(&self) -> String;
+    /// Encodes the value into an MML token string.
+fn encode_mml_value(&self) -> String;
 }
 
 impl<'de, T> MmlValueBorrowed<'de> for T
@@ -473,23 +489,23 @@ impl MmlValueEncode for &str {
     }
 }
 
-/// 定义字段级别的解析与编码行为。
+/// Field-level decode/encode behavior used by derive macros.
 pub trait MmlField<'de>: Sized {
-    /// 判断字段是否在参数集合中存在。
-    fn has_field<P>(field_name: &str, params: P) -> bool
+    /// Returns whether the field is present in the parameter map.
+fn has_field<P>(field_name: &str, params: P) -> bool
     where
         P: MmlParamLookup<'de> + Copy,
     {
         params.contains(field_name)
     }
 
-    /// 从参数集合读取并解析指定字段。
-    fn from_mml_field<P>(field_name: &str, params: P) -> Result<Self, MmlError>
+    /// Parses one field from the parameter map.
+fn from_mml_field<P>(field_name: &str, params: P) -> Result<Self, MmlError>
     where
         P: MmlParamLookup<'de> + Copy;
 
-    /// 将字段编码后追加到参数输出列表。
-    fn append_mml_field(
+    /// Appends one serialized field into the output list.
+fn append_mml_field(
         &self,
         field_name: &str,
         out: &mut Vec<(String, String)>,
@@ -524,47 +540,47 @@ where
     }
 }
 
-/// 定义分支参数组（如 DID 分支）的解析与编码行为。
+/// Branch decode/encode behavior for tagged parameter groups.
 pub trait MmlBranch<'de>: Sized {
-    /// 分支标签字段名；为空时使用外部传入字段名。
-    const TAG: Option<&'static str>;
+    /// Branch tag key override; use field name when `None`.
+const TAG: Option<&'static str>;
 
-    /// 按标签字段和值解析具体分支。
-    fn from_mml_branch<P>(tag_key: &str, params: P) -> Result<Self, MmlError>
+    /// Parses a tagged branch from the parameter map.
+fn from_mml_branch<P>(tag_key: &str, params: P) -> Result<Self, MmlError>
     where
         P: MmlParamLookup<'de> + Copy;
 
-    /// 将分支编码为标签和分支字段并写入输出。
-    fn append_mml_branch(
+    /// Appends a tagged branch into serialized parameters.
+fn append_mml_branch(
         &self,
         tag_key: &str,
         out: &mut Vec<(String, String)>,
     ) -> Result<(), MmlError>;
 }
 
-/// 从参数集合反序列化为目标类型。
+/// Deserializes a Rust type from MML parameters.
 pub trait MmlDeserialize<'de>: Sized {
-    /// 反序列化入口函数。
-    fn from_mml_params<P>(params: P) -> Result<Self, MmlError>
+    /// Builds a value from MML parameters.
+fn from_mml_params<P>(params: P) -> Result<Self, MmlError>
     where
         P: MmlParamLookup<'de> + Copy;
 }
 
-/// 把目标类型序列化为参数列表。
+/// Serializes a Rust type into MML key-value parameters.
 pub trait MmlSerialize {
-    /// 序列化入口函数。
-    fn to_mml_params(&self) -> Result<Vec<(String, String)>, MmlError>;
+    /// Serializes the value into MML parameters.
+fn to_mml_params(&self) -> Result<Vec<(String, String)>, MmlError>;
 }
 
-/// 完整 MML 命令类型：包含命令头校验与参数读写能力。
+/// Command-level API that validates op/object headers.
 pub trait MmlCommand: Sized + MmlSerialize {
-    /// 命令操作类型常量（如 `ADD`）。
-    const MML_OP: &'static str;
-    /// 命令对象常量（如 `ASBR`）。
-    const MML_OBJECT: &'static str;
+    /// Expected MML operation token, such as `ADD`.
+const MML_OP: &'static str;
+    /// Expected MML object token, such as `ASBR`.
+const MML_OBJECT: &'static str;
 
-    /// 从完整 MML 行解析当前命令对象（拥有型反序列化）。
-    fn from_mml_line(input: &str) -> Result<Self, MmlError>
+    /// Parses and validates a full MML command line for this command type.
+fn from_mml_line(input: &str) -> Result<Self, MmlError>
     where
         for<'de> Self: MmlDeserialize<'de>,
     {
@@ -573,8 +589,8 @@ pub trait MmlCommand: Sized + MmlSerialize {
         <Self as MmlDeserialize<'_>>::from_mml_params(&params)
     }
 
-    /// 从完整 MML 行解析当前命令对象（借用型反序列化）。
-    fn from_mml_line_borrowed<'de>(input: &'de str) -> Result<Self, MmlError>
+    /// Parses a full command line with borrowed fields when possible.
+fn from_mml_line_borrowed<'de>(input: &'de str) -> Result<Self, MmlError>
     where
         Self: MmlDeserialize<'de>,
     {
@@ -583,8 +599,8 @@ pub trait MmlCommand: Sized + MmlSerialize {
         <Self as MmlDeserialize<'de>>::from_mml_params(&params)
     }
 
-    /// 将当前命令对象编码为完整 MML 行。
-    fn to_mml_line(&self) -> Result<String, MmlError> {
+    /// Serializes a command into a full MML line.
+fn to_mml_line(&self) -> Result<String, MmlError> {
         let params = self.to_mml_params()?;
         Ok(compose_mml_line(Self::MML_OP, Self::MML_OBJECT, &params))
     }
@@ -683,7 +699,7 @@ impl<const NUM_SIZE: usize> MmlValue for ImsUserNum<NUM_SIZE> {
 }
 
 #[macro_export]
-/// 为实现了 `FromStr + Display` 的类型快速生成 `MmlValue` 实现。
+/// Implements `MmlValue` via `FromStr` and `Display`.
 macro_rules! impl_mml_value_via_fromstr_display {
     ($($ty:ty),+ $(,)?) => {
         $(

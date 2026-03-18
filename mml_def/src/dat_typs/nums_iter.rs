@@ -1,8 +1,8 @@
-﻿use super::U4Number;
+use super::U4Number;
 use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]
-/// 前缀区间迭代器，将 `[start, end]` 转换为可压缩前缀序列。
+/// Iterator that covers `[start, end]` using compact prefixes.
 pub struct RangeOfPrefix<const NUM_SIZE: usize> {
     nxt: Vec<u8>,
     end: Vec<u8>,
@@ -23,13 +23,13 @@ impl<const NUM_SIZE: usize> RangeOfPrefix<NUM_SIZE> {
         b_len
     }
 
-    /// 构造前缀区间迭代器（要求 `start <= end`）。
+    /// Creates a compact range iterator from `start` to `end`.
 
     pub fn new(start: U4Number<NUM_SIZE>, end: U4Number<NUM_SIZE>) -> Self {
         Self::from_u4(start, end)
     }
 
-    /// 以 `U4Number` 形式构造前缀区间迭代器。
+    /// Creates the iterator from two `U4Number` bounds.
 
     pub fn from_u4(start: U4Number<NUM_SIZE>, end: U4Number<NUM_SIZE>) -> Self {
         assert!(

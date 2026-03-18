@@ -1,12 +1,12 @@
 #[derive(Debug, Clone)]
-/// MGW 标识，格式为 `ip:port`。
+/// MGW identifier in `ip:port` format.
 pub struct MgwId {
     pub ip: [u8; 4],
     pub port: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-/// 通用格式错误类型。
+/// Generic format error type.
 pub struct FormatError;
 
 impl std::fmt::Display for FormatError {
@@ -46,7 +46,7 @@ impl std::fmt::Display for MgwId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-/// N7 信令点编码（3 字节十六进制）。
+/// N7 signaling point code represented by three bytes.
 pub struct N7SPC([u8; 3]);
 
 impl std::str::FromStr for N7SPC {
@@ -70,7 +70,7 @@ impl std::fmt::Display for N7SPC {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-/// AGCF IPv4 地址类型。
+/// AGCF IPv4 address value.
 pub struct AgcfIpaddr([u8; 4]);
 
 impl std::str::FromStr for AgcfIpaddr {
